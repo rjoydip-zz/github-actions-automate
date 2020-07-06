@@ -1,6 +1,6 @@
-# pr-automate
+# actions-automate
 
-Collection of pr-automate CI script.
+Collection of github actions automate.
 
 ## Table of content
 
