@@ -5,13 +5,12 @@ Collection of github actions helps to automate gihub CI/CD.
 ## Table of content
 
 - [Merge pull request](#merge-pull-request)
-- [Merge pull request based on specified label](#merge-pull-request-based-on-specified-label)
+- [Merge pull request based on specified label with dependency](#merge-pull-request-based-on-specified-label-with-dependency)
+- [Merge pull request based on specified label without dependency](#merge-pull-request-based-on-specified-label-without-dependency)
 
 ### Merge pull request
 
-Automatically merge pull request. 
-
-Below actions code will merge PR automatically. Zero configuration/depedencies and it runs on top of `github-script`.
+Automatically merge pull request. Below actions code will merge PR automatically. Zero configuration/dependency and it runs on top of `github-script`.
 
 ```yml
 - uses: actions/github-script@v2
@@ -32,7 +31,7 @@ Below actions code will merge PR automatically. Zero configuration/depedencies a
       });
 ```
 
-### Merge pull request based on specified label
+### Merge pull request based on specified label with dependency
 
 Automatically merge pull request based on specified label.
 
@@ -80,4 +79,42 @@ if: steps.add_label.outputs.result == true
 uses: maxkomarychev/merge-pal-action@v0.5.1
 with:
   token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Merge pull request based on specified label without dependency
+
+Automatically merge pull request based on specified label.
+
+Below actions code will create `database` label and will add it if and only if (iff) `database.json` is changed. Zero configuration/dependency and it runs on top of `github-script`.
+
+```yml
+- uses: actions/checkout@v2
+- uses: actions/github-script@v2
+  with:
+    github-token: ${{secrets.GITHUB_TOKEN}}
+    script: |
+      const repo = context.repo;
+      const labels = ["database"];
+      const validate_file = "database.json";
+      const pull_issue_number = context.issue.number;
+      const options = await github.pulls.listFiles({
+        ...repo,
+        pull_number: pull_issue_number,
+      });
+      const files = (await github.paginate(options, (response) => response.data) || []).map((x) => x.filename).filter(Boolean);
+      if (
+        validate_file &&
+        files.length === 1 &&
+        files.filter((f) => f.includes(validate_file)).length === 1
+      ) {
+        await github.issues.addLabels({
+          issue_number: pull_issue_number,
+          ...repo,
+          labels,
+        });
+        await github.pulls.merge({
+          ...repo,
+          pull_number: pull_issue_number,
+        });
+      }
 ```
