@@ -4,11 +4,14 @@ Collection of github actions helps to automate gihub CI/CD.
 
 ## Table of content
 
-- [Merge pull request](#merge-pull-request)
-- [Merge pull request based on specified label with dependency](#merge-pull-request-based-on-specified-label-with-dependency)
-- [Merge pull request based on specified label without dependency](#merge-pull-request-based-on-specified-label-without-dependency)
+- [Get list of files in PR](#get-list-of-files-in-pr)
+- [Create or Update googlesheet data](#create-or-update-googlesheet-data)
+- [Merge PR](#merge-pr)
+  - [Merge pull request](#merge-pull-request)
+  - [Merge pull request based on specified label with dependency](#merge-pull-request-based-on-specified-label-with-dependency)
+  - [Merge pull request based on specified label without dependency](#merge-pull-request-based-on-specified-label-without-dependency)
 
-### Get list of files int PR
+### Get list of files in PR
 
 Get list of files changed in pull request.
 
@@ -30,6 +33,94 @@ steps:
         (await github.paginate(options, (response) => response.data)) || []
       ).map((x) => x.filename).filter(Boolean);
 ```
+
+### Create or Update googlesheet data
+
+Create or update googlesheet data. But it should do on schedule job.
+
+```yml
+name: CI
+on:
+  push:
+    branches: [master]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - id: googlesheet_actions
+        uses: rjoydip/googlesheet-actions@0.1.1
+        with:
+          sheet-id: ${{ secrets.SHEET_ID }}
+      - uses: actions/github-script@v2
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            let sha = null;
+            const path = "data.json";
+            const branchName = "master";
+            const ref = `heads/${branchName}`;
+            const message = "Data updateed - commit from github actions";
+            const content = Buffer.from(
+                JSON.stringify(
+                    ${{steps.googlesheet_actions.outputs.result}}
+                )
+            ).toString("base64");
+
+            // Get the current "master" reference, to get the current master's sha
+            const getRef = await github.git.getRef({
+                ...context.repo,
+                ref,
+            });
+
+            // Get the tree associated with master, and the content
+            // of the template file to open the PR with.
+            const tree = await github.git.getTree({
+                ...context.repo,
+                tree_sha: getRef.data.object.sha,
+            });
+
+            // Create a new blob with the existing template content
+            const blob = await github.git.createBlob({
+                ...context.repo,
+                content,
+                encoding: "utf8",
+            });
+
+            const newTree = await github.git.createTree({
+                ...context.repo,
+                tree: [{
+                    path,
+                    sha: blob.data.sha,
+                    mode: "100644",
+                    type: "blob",
+                }],
+                base_tree: tree.data.sha,
+            });
+
+            try {
+                const getContents = await github.repos.getContents({
+                    ...context.repo,
+                    path,
+                    ref: "refs/heads/master",
+                });
+                sha = getContents.data.sha
+            } catch (_) {
+                sha = newTree.data.sha
+            }
+
+            github.repos.createOrUpdateFile({
+                ...context.repo,
+                path,
+                message,
+                content,
+                sha,
+                committer: content.repo,
+            });
+
+```
+
+## Merge PR
 
 ### Merge pull request
 
