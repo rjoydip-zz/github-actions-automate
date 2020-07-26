@@ -8,6 +8,29 @@ Collection of github actions helps to automate gihub CI/CD.
 - [Merge pull request based on specified label with dependency](#merge-pull-request-based-on-specified-label-with-dependency)
 - [Merge pull request based on specified label without dependency](#merge-pull-request-based-on-specified-label-without-dependency)
 
+### Get list of files int PR
+
+Get list of files changed in pull request.
+
+```yml
+steps:
+  - uses: actions/github-script@v2
+    if: github.event_name == 'pull_request'
+    with:
+    github-token: ${{secrets.GITHUB_TOKEN}}
+    script: |
+      let isDatabaseChanges = false, isArtworkChanges = false;
+      const repo = context.repo;
+      const pull_number = context.issue.number;
+      const options = await github.pulls.listFiles({
+        ...repo,
+        pull_number: pull_number,
+      });
+      const files = (
+        (await github.paginate(options, (response) => response.data)) || []
+      ).map((x) => x.filename).filter(Boolean);
+```
+
 ### Merge pull request
 
 Automatically merge pull request. Below actions code will merge PR automatically. Zero configuration/dependency and it runs on top of `github-script`.
