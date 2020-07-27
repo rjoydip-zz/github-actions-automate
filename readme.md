@@ -58,64 +58,26 @@ jobs:
           script: |
             let sha = null;
             const path = "data.json";
-            const branchName = "master";
-            const ref = `heads/${branchName}`;
-            const message = "Data updateed - commit from github actions";
-            const content = Buffer.from(
-                JSON.stringify(
-                    ${{steps.googlesheet_actions.outputs.result}}
-                )
-            ).toString("base64");
-
-            // Get the current "master" reference, to get the current master's sha
-            const getRef = await github.git.getRef({
-                ...context.repo,
-                ref,
-            });
-
-            // Get the tree associated with master, and the content
-            // of the template file to open the PR with.
-            const tree = await github.git.getTree({
-                ...context.repo,
-                tree_sha: getRef.data.object.sha,
-            });
-
-            // Create a new blob with the existing template content
-            const blob = await github.git.createBlob({
-                ...context.repo,
-                content,
-                encoding: "utf8",
-            });
-
-            const newTree = await github.git.createTree({
-                ...context.repo,
-                tree: [{
-                    path,
-                    sha: blob.data.sha,
-                    mode: "100644",
-                    type: "blob",
-                }],
-                base_tree: tree.data.sha,
-            });
-
             try {
+                // Get content if path is exists previously
                 const getContents = await github.repos.getContents({
                     ...context.repo,
                     path,
                     ref: "refs/heads/master",
                 });
-                sha = getContents.data.sha
-            } catch (_) {
-                sha = newTree.data.sha
-            }
-
+                sha = getContents.data.sha;
+            } catch (_) {}
             github.repos.createOrUpdateFile({
                 ...context.repo,
                 path,
-                message,
-                content,
+                message: "Data updateed - commit from github actions",
+                content: Buffer.from(
+                    JSON.stringify(
+                        ${{steps.googlesheet_actions.outputs.result}}
+                    )
+                ).toString("base64"),
                 sha,
-                committer: content.repo,
+                committer: context.pusher,
             });
 
 ```
